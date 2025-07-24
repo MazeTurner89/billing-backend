@@ -44,11 +44,29 @@ async function connectToDatabase() {
 
 // Explicitly configure CORS
 // TEMPORARY DEBUGGING STEP: Allow requests from ANY origin
-// FINAL PRODUCTION CORS CONFIGURATION
+// FINAL PRODUCTION CORS CONFIGURATION (ROBUST)
+const allowedOrigins = [
+  'https://billing-frontend-five.vercel.app', // Your main Vercel URL
+  'https://www.billing-frontend-five.vercel.app' // In case Vercel adds a 'www'
+];
+
 const corsOptions = {
-  origin: 'https://billing-frontend-five.vercel.app/', // e.g., 'https://billing-frontend-mazeturner89.vercel.app'
-  optionsSuccessStatus: 200
+  origin: function (origin, callback) {
+    // Log the origin of every request for debugging
+    console.log('INCOMING REQUEST FROM ORIGIN:', origin);
+
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  }
 };
+
+app.use(cors(corsOptions));
 
 app.use(cors(corsOptions));
 

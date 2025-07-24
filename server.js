@@ -42,7 +42,13 @@ async function connectToDatabase() {
   }
 }
 
-app.use(cors());
+// Explicitly configure CORS
+const corsOptions = {
+  origin: 'YOUR_VERCEL_FRONTEND_URL_GOES_HERE', // e.g., 'https://billing-frontend-xxxx.vercel.app'
+  optionsSuccessStatus: 200 // For legacy browser support
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // --- ROUTES (Unchanged) ---

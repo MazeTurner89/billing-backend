@@ -44,10 +44,13 @@ async function connectToDatabase() {
 
 // Explicitly configure CORS
 // TEMPORARY DEBUGGING STEP: Allow requests from ANY origin
+// FINAL PRODUCTION CORS CONFIGURATION
 const corsOptions = {
-  origin: '*',
+  origin: 'https://billing-frontend-five.vercel.app/', // e.g., 'https://billing-frontend-mazeturner89.vercel.app'
   optionsSuccessStatus: 200
 };
+
+app.use(cors(corsOptions));
 
 app.use(cors(corsOptions));
 

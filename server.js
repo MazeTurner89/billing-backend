@@ -15,7 +15,7 @@ const PORT = 8080;
 
 // This should be your MongoDB Atlas connection string.
 // For deployment, this will be replaced by process.env.MONGO_URI
-cconst connectionString = process.env.MONGO_URI;
+const connectionString = process.env.MONGO_URI;
 const client = new MongoClient(connectionString);
 let db, billsCollection;
 

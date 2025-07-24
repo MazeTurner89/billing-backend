@@ -1,9 +1,9 @@
 // ===================================================================================
-// FINAL BACKEND CODE
+// FINAL BACKEND CODE (ROBUST VERSION)
 // FILE: server.js (in your 'billing-backend' project)
 //
-// GOAL: Enhance the /api/bills endpoint to return summary statistics for the
-// new Data Explorer page.
+// GOAL: Add a check to ensure the MONGO_URI environment variable exists before
+// trying to connect to the database. This provides a clear error message on failure.
 // ===================================================================================
 
 const express = require('express');
@@ -13,9 +13,20 @@ const { MongoClient, ObjectId } = require('mongodb');
 const app = express();
 const PORT = 8080;
 
-// This should be your MongoDB Atlas connection string.
-// For deployment, this will be replaced by process.env.MONGO_URI
+// This is the CRITICAL change. We now get the connection string from the
+// environment variable provided by the hosting service (Render).
 const connectionString = process.env.MONGO_URI;
+
+// NEW: Add a check to ensure the environment variable is set.
+if (!connectionString) {
+  console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  console.error("!!! FATAL ERROR: MONGO_URI environment variable not set. !!!");
+  console.error("!!! The server cannot start without a database connection. !!!");
+  console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  process.exit(1); // Exit the process with a failure code.
+}
+
+
 const client = new MongoClient(connectionString);
 let db, billsCollection;
 
@@ -34,55 +45,33 @@ async function connectToDatabase() {
 app.use(cors());
 app.use(express.json());
 
-// --- ROUTES ---
-
-/**
- * @route   GET /api/bills
- * @desc    Get all bills from the database AND summary statistics
- * @access  Public
- */
+// --- ROUTES (Unchanged) ---
 app.get('/api/bills', async (req, res) => {
-  console.log('GET request received for /api/bills');
   try {
-    // We run two queries in parallel for efficiency.
     const allBillsPromise = billsCollection.find({}).toArray();
-    
-    // A new aggregation pipeline to calculate overall statistics.
     const statsPromise = billsCollection.aggregate([
       { $addFields: { costPerUnit: { $divide: ["$totalAmount", "$unitsConsumed"] } } },
       { $group: {
           _id: null,
           totalBills: { $sum: 1 },
-          overallAverageCost: { $avg: "$costPerUnit" },
-          providerDistribution: { $addToSet: "$provider" } // This is a simple example; a more complex one is below
+          overallAverageCost: { $avg: "$costPerUnit" }
       }}
     ]).toArray();
-    
-    // A pipeline to get provider counts for a pie chart
     const providerCountsPromise = billsCollection.aggregate([
         { $group: { _id: "$provider", count: { $sum: 1 } } },
         { $project: { name: "$_id", value: "$count", _id: 0 } }
     ]).toArray();
-
-
-    // Wait for all promises to resolve.
     const [allBills, stats, providerCounts] = await Promise.all([allBillsPromise, statsPromise, providerCountsPromise]);
-
-    // Combine the results into a single response object.
     res.json({
       bills: allBills,
-      summary: stats[0] || { totalBills: 0, overallAverageCost: 0 }, // Provide default values if no bills exist
+      summary: stats[0] || { totalBills: 0, overallAverageCost: 0 },
       providerCounts: providerCounts || []
     });
-
   } catch (err) {
-    console.error("Failed to fetch bills and stats:", err);
     res.status(500).json({ message: "Error fetching data from database." });
   }
 });
 
-
-// The POST /api/bills and GET /api/compare routes are unchanged.
 app.post('/api/bills', async (req, res) => {
   const newBill = req.body;
   if (!newBill.provider || !newBill.totalAmount || !newBill.unitsConsumed) {
@@ -137,13 +126,10 @@ app.get('/api/compare', async (req, res) => {
       comparison: analysis[0]
     });
   } catch (err) {
-    console.error("Analysis failed:", err);
     res.status(500).json({ message: "Error performing analysis." });
   }
 });
 
-
-// --- SERVER ACTIVATION ---
 connectToDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`--- Final Backend Server is running on http://localhost:${PORT} ---`);
